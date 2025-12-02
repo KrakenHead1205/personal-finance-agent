@@ -26,6 +26,24 @@ function normalizeCategory(category: string): string {
 export function ruleBasedCategorize(description: string): string {
   const lowerDescription = description.toLowerCase();
 
+  // Credit Card Bill Payments (must check first, before other patterns)
+  if (
+    lowerDescription.includes('american express') ||
+    lowerDescription.includes('amex') ||
+    lowerDescription.includes('cred club') ||
+    (lowerDescription.includes('cred') && (lowerDescription.includes('trf') || lowerDescription.includes('payment'))) ||
+    lowerDescription.includes('credit card') ||
+    lowerDescription.includes('card payment') ||
+    lowerDescription.includes('card bill') ||
+    (lowerDescription.includes('trf to') && (
+      lowerDescription.includes('express') ||
+      lowerDescription.includes('cred') ||
+      lowerDescription.includes('card')
+    ))
+  ) {
+    return 'Bills';
+  }
+
   // Food keywords
   if (
     lowerDescription.includes('swiggy') ||
@@ -52,7 +70,7 @@ export function ruleBasedCategorize(description: string): string {
     return 'Rent';
   }
 
-  // Bills keywords
+  // Bills keywords (utilities, etc.)
   if (
     lowerDescription.includes('electricity') ||
     lowerDescription.includes('wifi') ||

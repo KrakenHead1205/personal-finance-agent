@@ -19,6 +19,10 @@ export async function runAgent(agentName: string, input: any): Promise<any> {
     prompt = `Categorize this transaction into one of these categories: Food, Transport, Rent, Bills, Shopping, Entertainment, Healthcare, Groceries, Other.
     
 Transaction: ${input.description}
+${input.rawText ? `Full SMS: ${input.rawText}` : ''}
+${input.channel ? `Payment Method: ${input.channel}` : ''}
+
+Important: Credit card bill payments (like payments to American Express, CRED Club, or any credit card company) should be categorized as "Bills".
 
 Respond with ONLY the category name, nothing else.`;
   } else if (agentName === 'insights-agent') {
