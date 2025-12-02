@@ -26,6 +26,16 @@ function normalizeCategory(category: string): string {
 export function ruleBasedCategorize(description: string): string {
   const lowerDescription = description.toLowerCase();
 
+  // ATM Cash Withdrawals (must check early, before other patterns)
+  if (
+    lowerDescription.includes('withdrawn at') ||
+    (lowerDescription.includes('withdrawn') && lowerDescription.includes('atm')) ||
+    lowerDescription.includes('cash withdrawal') ||
+    lowerDescription.includes('atm withdrawal')
+  ) {
+    return 'Cash';
+  }
+
   // Credit Card Bill Payments (must check first, before other patterns)
   if (
     lowerDescription.includes('american express') ||

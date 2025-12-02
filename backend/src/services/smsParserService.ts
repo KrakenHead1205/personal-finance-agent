@@ -65,6 +65,7 @@ export function extractMerchant(smsText: string): string {
   // Try to extract merchant name from common patterns
   const patterns = [
     /trf\s+to\s+([A-Z][A-Z0-9\s]+?)(?:\s+Refno|\s+on|\s+dated|\.|$)/i,  // Credit card payments: "trf to American Express"
+    /withdrawn\s+at\s+([A-Z][A-Z0-9\s]+?)(?:\s+ATM|\s+from|\s+on|\.|$)/i,  // ATM withdrawals: "withdrawn at ICI ATM"
     /(?:at|to|for)\s+([A-Z][A-Z0-9\s]+?)(?:\s+on|\s+dated|\.|$)/,
     /upi\/\d+\/([A-Z@]+)/i,
     /paid to\s+([A-Z][A-Z0-9\s]+)/i,
