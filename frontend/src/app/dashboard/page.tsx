@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState(getLastNDays(7));
+  const [dateRange, setDateRange] = useState<{ from: string; to: string }>(getLastNDays(7));
 
   // Weekly report state
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReportResponse | null>(null);
@@ -81,7 +81,10 @@ export default function DashboardPage() {
   }, [selectedWeekStart]);
 
   // Calculate total spent
-  const totalSpent = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+  const totalSpent = transactions.reduce((sum, transaction) => {
+    const amount = typeof transaction.amount === 'number' ? transaction.amount : 0;
+    return sum + amount;
+  }, 0);
 
   // Handle form input changes
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -361,13 +364,13 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Date Range</p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {dateRange.from} to {dateRange.to}
+                  {dateRange?.from || 'N/A'} to {dateRange?.to || 'N/A'}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
                 <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-                  ₹{totalSpent.toFixed(2)}
+                  ₹{(totalSpent || 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -587,7 +590,7 @@ export default function DashboardPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-gray-300">
-                        ₹{transaction.amount.toFixed(2)}
+                        ₹{(typeof transaction.amount === 'number' ? transaction.amount : 0).toFixed(2)}
                       </td>
                     </tr>
                   ))}

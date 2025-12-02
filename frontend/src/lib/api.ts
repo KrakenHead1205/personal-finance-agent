@@ -10,13 +10,15 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
  */
 export interface Transaction {
   id: string;
-  userId: string;
+  user_id: string;
+  userId?: string; // For backward compatibility
   amount: number;
   description: string;
   category: string;
   source: string;
   date: string;
-  createdAt: string;
+  created_at: string;
+  createdAt?: string; // For backward compatibility
 }
 
 /**
@@ -102,17 +104,40 @@ export async function createTransaction(transaction: {
   source: string;
   date: string;
 }): Promise<{ message: string; transaction: Transaction }> {
+  // Convert frontend camelCase to backend snake_case
+  const backendTransaction = {
+    user_id: transaction.userId,
+    amount: transaction.amount,
+    description: transaction.description,
+    category: transaction.category,
+    source: transaction.source,
+    date: transaction.date,
+  };
+
   const response = await fetch(`${API_BASE_URL}/transactions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(transaction),
+    body: JSON.stringify(backendTransaction),
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create transaction');
+    let errorMessage = 'Failed to create transaction';
+    try {
+      const error = await response.json();
+      errorMessage = error.error || error.message || errorMessage;
+      if (error.required) {
+        errorMessage += `. Missing: ${error.required.join(', ')}`;
+      }
+      if (error.details) {
+        errorMessage += `. ${error.details}`;
+      }
+    } catch (e) {
+      // If response is not JSON, use status text
+      errorMessage = `${errorMessage}: ${response.statusText}`;
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
