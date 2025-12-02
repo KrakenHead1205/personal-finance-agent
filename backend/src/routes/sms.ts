@@ -121,18 +121,26 @@ router.post('/webhook', validateWebhookKey, async (req: Request, res: Response) 
     // Get user ID from environment or use default
     const userId = process.env.USER_ID_FOR_SMS || 'demo-user';
 
-    // Create transaction in database
+    // Create transaction in database (awaits full pipeline: parse → categorize → insert)
     const transaction = await createTransactionFromSMS(parsed, userId);
 
+    // Return success response
     res.status(200).json({
       success: true,
       transaction,
     });
   } catch (error) {
+    // Log detailed error for debugging
     console.error('Error processing SMS webhook:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Stack trace:', error.stack);
+    }
+
+    // Return generic error response
     res.status(500).json({
-      error: 'Failed to process SMS',
-      message: 'Internal server error',
+      success: false,
+      error: 'Internal server error',
     });
   }
 });

@@ -1,6 +1,6 @@
 import pool from '../db/pool';
 import { Transaction, CreateTransactionInput, ParsedTransaction } from '../types/transaction';
-import { categorizeTransaction } from './categorizationService';
+import { categorizeTransaction, ruleBasedCategorize } from './categorizationService';
 
 /**
  * Transaction service
@@ -17,13 +17,27 @@ export async function createTransaction(
 ): Promise<Transaction> {
   const { user_id, amount, description, category, source, date } = data;
 
+  // Determine final category: use provided category or auto-categorize
+  let finalCategory: string;
+  
+  if (category && category.trim().length > 0) {
+    // Use provided category as-is
+    finalCategory = category;
+  } else {
+    // Auto-categorize using improved pipeline (ADK with fallback)
+    finalCategory = await categorizeTransaction(description, {
+      amount,
+      channel: source, // e.g., "UPI", "Credit Card", etc.
+    });
+  }
+
   const query = `
     INSERT INTO transactions (user_id, amount, description, category, source, date)
     VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *
   `;
 
-  const values = [user_id, amount, description, category, source, date];
+  const values = [user_id, amount, description, finalCategory, source, date];
 
   const result = await pool.query(query, values);
   return result.rows[0];
@@ -98,30 +112,47 @@ export async function getAllTransactions(): Promise<Transaction[]> {
  * @returns Created transaction
  */
 export async function createTransactionFromSMS(
-  parsedData: ParsedTransaction,
+  parsed: ParsedTransaction,
   userId: string
 ): Promise<Transaction> {
-  // Determine source based on channel
-  let source = parsedData.channel;
-  if (parsedData.bank) {
-    source = `${parsedData.bank} ${parsedData.channel}`;
+  // Map channel to source
+  let source: string;
+  switch (parsed.channel) {
+    case 'UPI':
+      source = 'UPI';
+      break;
+    case 'CARD':
+      source = 'Credit Card';
+      break;
+    case 'ATM':
+      source = 'Debit Card';
+      break;
+    default:
+      source = 'SMS';
   }
 
-  // Auto-categorize based on merchant description
-  const category = await categorizeTransaction(parsedData.merchant);
+  // Use merchant name if available, otherwise fall back to raw text
+  const description = parsed.merchant || parsed.rawText;
+
+  // Auto-categorize using improved pipeline with full context
+  const category = await categorizeTransaction(description, {
+    amount: parsed.amount,
+    channel: parsed.channel,
+    rawText: parsed.rawText,
+  });
 
   // For credit transactions (money received), we might want to handle differently
   // For now, we'll store all transactions as positive amounts
-  const amount = parsedData.type === 'CREDIT' ? parsedData.amount : parsedData.amount;
+  const amount = parsed.type === 'CREDIT' ? parsed.amount : parsed.amount;
 
   // Create transaction
   const transaction = await createTransaction({
     user_id: userId,
     amount,
-    description: parsedData.merchant,
+    description,
     category,
     source,
-    date: parsedData.date,
+    date: parsed.date,
   });
 
   return transaction;
