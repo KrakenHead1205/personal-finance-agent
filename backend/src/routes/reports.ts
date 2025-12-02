@@ -50,8 +50,21 @@ router.get('/weekly', async (req: Request, res: Response) => {
     // Call the summary service
     const summary = await generateWeeklySummary(weekStart);
 
+    // Normalize amounts in topTransactions (PostgreSQL NUMERIC returns as string)
+    const normalizedTopTransactions = summary.topTransactions.map((tx) => ({
+      ...tx,
+      amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : Number(tx.amount),
+      date: tx.date instanceof Date ? tx.date.toISOString() : tx.date,
+      created_at: tx.created_at instanceof Date ? tx.created_at.toISOString() : tx.created_at,
+    }));
+
+    const normalizedSummary = {
+      ...summary,
+      topTransactions: normalizedTopTransactions,
+    };
+
     // Generate insights from the summary
-    const insights = await generateInsights(summary);
+    const insights = await generateInsights(normalizedSummary);
 
     // Calculate weekEnd
     const weekEnd = new Date(parsedDate);
@@ -61,7 +74,7 @@ router.get('/weekly', async (req: Request, res: Response) => {
     res.json({
       weekStart,
       weekEnd: weekEnd.toISOString().split('T')[0],
-      summary,
+      summary: normalizedSummary,
       insights,
     });
   } catch (error) {

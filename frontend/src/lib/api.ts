@@ -71,7 +71,17 @@ export async function fetchTransactions(
     throw new Error(`Failed to fetch transactions: ${response.statusText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  
+  // Convert amount from string to number (PostgreSQL NUMERIC returns as string)
+  if (data.transactions && Array.isArray(data.transactions)) {
+    data.transactions = data.transactions.map((tx: any) => ({
+      ...tx,
+      amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount,
+    }));
+  }
+
+  return data;
 }
 
 /**
@@ -88,7 +98,34 @@ export async function fetchWeeklyReport(weekStart: string): Promise<WeeklyReport
     throw new Error(`Failed to fetch weekly report: ${response.statusText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  
+  // Convert amounts from string to number (PostgreSQL NUMERIC returns as string)
+  if (data.summary) {
+    // Convert total
+    if (typeof data.summary.total === 'string') {
+      data.summary.total = parseFloat(data.summary.total);
+    }
+    
+    // Convert byCategory amounts
+    if (data.summary.byCategory) {
+      const converted: Record<string, number> = {};
+      for (const [category, amount] of Object.entries(data.summary.byCategory)) {
+        converted[category] = typeof amount === 'string' ? parseFloat(amount) : amount;
+      }
+      data.summary.byCategory = converted;
+    }
+    
+    // Convert topTransactions amounts
+    if (data.summary.topTransactions && Array.isArray(data.summary.topTransactions)) {
+      data.summary.topTransactions = data.summary.topTransactions.map((tx: any) => ({
+        ...tx,
+        amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount,
+      }));
+    }
+  }
+
+  return data;
 }
 
 /**

@@ -47,9 +47,17 @@ router.post('/', async (req: Request, res: Response) => {
       date,
     });
 
+    // Normalize transaction response (convert NUMERIC to number, dates to ISO strings)
+    const normalizedTransaction = {
+      ...transaction,
+      amount: typeof transaction.amount === 'string' ? parseFloat(transaction.amount) : Number(transaction.amount),
+      date: transaction.date instanceof Date ? transaction.date.toISOString() : transaction.date,
+      created_at: transaction.created_at instanceof Date ? transaction.created_at.toISOString() : transaction.created_at,
+    };
+
     res.status(201).json({
       message: 'Transaction created successfully',
-      transaction,
+      transaction: normalizedTransaction,
     });
   } catch (error) {
     console.error('Error creating transaction:', error);
@@ -84,9 +92,17 @@ router.get('/', async (req: Request, res: Response) => {
       user_id as string | undefined
     );
 
+    // Convert PostgreSQL NUMERIC (string) to number for JSON response
+    const normalizedTransactions = transactions.map((tx) => ({
+      ...tx,
+      amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : Number(tx.amount),
+      date: tx.date instanceof Date ? tx.date.toISOString() : tx.date,
+      created_at: tx.created_at instanceof Date ? tx.created_at.toISOString() : tx.created_at,
+    }));
+
     res.json({
-      count: transactions.length,
-      transactions,
+      count: normalizedTransactions.length,
+      transactions: normalizedTransactions,
     });
   } catch (error) {
     console.error('Error fetching transactions:', error);
