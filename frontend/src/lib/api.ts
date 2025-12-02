@@ -3,7 +3,7 @@
  */
 
 // Backend API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 /**
  * Transaction interface matching backend response
@@ -63,7 +63,7 @@ export async function fetchTransactions(
     params.append('userId', userId);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/transactions?${params.toString()}`);
+  const response = await fetch(`${API_BASE_URL}/transactions?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch transactions: ${response.statusText}`);
@@ -79,7 +79,7 @@ export async function fetchTransactions(
  */
 export async function fetchWeeklyReport(weekStart: string): Promise<WeeklyReportResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/api/reports/weekly?weekStart=${weekStart}`
+    `${API_BASE_URL}/reports/weekly?weekStart=${weekStart}`
   );
 
   if (!response.ok) {
@@ -102,7 +102,7 @@ export async function createTransaction(transaction: {
   source: string;
   date: string;
 }): Promise<{ message: string; transaction: Transaction }> {
-  const response = await fetch(`${API_BASE_URL}/api/transactions`, {
+  const response = await fetch(`${API_BASE_URL}/transactions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -9,7 +9,11 @@ export async function runAgent(agentName: string, input: any): Promise<any> {
   }
 
   // Use gemini-1.5-flash (latest stable model)
-  const endpoint = `${API_URL}/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  // Try with latest suffix first, fallback to base name
+  let endpoint = `${API_URL}/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
+  
+  // Alternative endpoint format if the above doesn't work
+  // const endpoint = `${API_URL}/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
   let prompt = '';
   

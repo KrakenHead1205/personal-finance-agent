@@ -515,7 +515,7 @@ export default function DashboardPage() {
               </div>
               <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                Make sure the backend server is running on port 3001
+                Make sure the backend server is running on port 4000
               </p>
             </div>
           ) : transactions.length === 0 ? (
