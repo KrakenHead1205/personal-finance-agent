@@ -1,5 +1,6 @@
 import pool from '../db/pool';
 import { Transaction, WeeklySummary } from '../types/transaction';
+import { runAgent } from './googleAdkClient';
 
 /**
  * Summary service
@@ -100,11 +101,62 @@ export async function generateMonthlySummary(
 }
 
 /**
- * Generate insights from summary (rule-based for now)
+ * Generate insights from summary using AI with rule-based fallback
  * @param summary - Weekly summary
  * @returns Array of insight strings
  */
 export async function generateInsights(summary: WeeklySummary): Promise<string[]> {
+  // Try AI-powered insights first
+  try {
+    const input = {
+      total: summary.total,
+      byCategory: summary.byCategory,
+      topTransactions: summary.topTransactions.map((tx) => ({
+        description: tx.description,
+        amount: parseFloat(tx.amount.toString()),
+        category: tx.category,
+        date: tx.date instanceof Date ? tx.date.toISOString() : tx.date,
+      })),
+    };
+
+    const result = await runAgent('insights-agent', input);
+
+    // Handle different response formats
+    let insights: string[] = [];
+
+    if (result && typeof result === 'object' && result.insights) {
+      insights = Array.isArray(result.insights) ? result.insights : [result.insights];
+    } else if (Array.isArray(result)) {
+      insights = result;
+    } else if (typeof result === 'string') {
+      insights = [result];
+    }
+
+    // Validate and filter insights
+    if (insights.length > 0 && insights.every((insight) => typeof insight === 'string' && insight.trim().length > 0)) {
+      console.log(`✅ AI-generated ${insights.length} insights`);
+      return insights.slice(0, 5); // Return up to 5 insights
+    } else {
+      console.warn('AI returned invalid insights, falling back to rules');
+      return generateRuleBasedInsights(summary);
+    }
+  } catch (error) {
+    // AI failed, use rule-based fallback
+    if (error instanceof Error && error.message.includes('not configured')) {
+      console.debug('AI not configured, using rule-based insights');
+    } else {
+      console.warn('AI insights generation failed, falling back to rules:', error instanceof Error ? error.message : error);
+    }
+    return generateRuleBasedInsights(summary);
+  }
+}
+
+/**
+ * Generate rule-based insights (fallback)
+ * @param summary - Weekly summary
+ * @returns Array of insight strings
+ */
+function generateRuleBasedInsights(summary: WeeklySummary): string[] {
   const insights: string[] = [];
 
   // Insight 1: Highest spending category

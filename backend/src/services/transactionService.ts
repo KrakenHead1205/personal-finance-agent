@@ -1,6 +1,7 @@
 import pool from '../db/pool';
 import { Transaction, CreateTransactionInput, ParsedTransaction } from '../types/transaction';
 import { categorizeTransaction, ruleBasedCategorize } from './categorizationService';
+import { checkForDuplicate } from './duplicateDetectionService';
 
 /**
  * Transaction service
@@ -8,14 +9,29 @@ import { categorizeTransaction, ruleBasedCategorize } from './categorizationServ
  */
 
 /**
- * Create a new transaction
+ * Create a new transaction with duplicate detection
  * @param data - Transaction data
- * @returns Created transaction
+ * @param skipDuplicateCheck - Skip duplicate check (default: false)
+ * @returns Created transaction and duplicate info
  */
 export async function createTransaction(
-  data: CreateTransactionInput
+  data: CreateTransactionInput,
+  skipDuplicateCheck: boolean = false
 ): Promise<Transaction> {
   const { user_id, amount, description, category, source, date } = data;
+
+  // Check for duplicates before creating (unless skipped)
+  if (!skipDuplicateCheck) {
+    const duplicateCheck = await checkForDuplicate(data, user_id, 24); // 24 hour window
+    
+    if (duplicateCheck.isDuplicate && duplicateCheck.confidence === 'high') {
+      console.warn(`⚠️ High-confidence duplicate detected: ${duplicateCheck.reason}`);
+      // Still create the transaction, but log the warning
+      // In production, you might want to return an error or ask for confirmation
+    } else if (duplicateCheck.isDuplicate && duplicateCheck.confidence === 'medium') {
+      console.warn(`⚠️ Potential duplicate detected: ${duplicateCheck.reason}`);
+    }
+  }
 
   // Determine final category: use provided category or auto-categorize
   let finalCategory: string;

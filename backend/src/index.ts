@@ -39,12 +39,21 @@ app.get('/', (req: Request, res: Response) => {
     endpoints: {
       health: '/health',
       transactions: '/transactions',
-      reports: '/reports',
+      reports: {
+        weekly: 'GET /reports/weekly?weekStart=YYYY-MM-DD&userId=xxx',
+        duplicates: 'GET /reports/duplicates?userId=xxx&days=30',
+        recurring: 'GET /reports/recurring?userId=xxx&days=90',
+      },
       sms: {
         webhook: 'POST /sms/webhook',
         parse: 'POST /sms/parse',
         test: 'GET /sms/test',
       },
+    },
+    features: {
+      duplicateDetection: 'Automatic duplicate transaction detection',
+      recurringTransactions: 'Recurring transaction pattern detection',
+      aiInsights: 'AI-powered financial insights using Google Gemini',
     },
   });
 });

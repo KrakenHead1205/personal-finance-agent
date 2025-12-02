@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { generateWeeklySummary, generateInsights } from '../services/summaryService';
+import { detectRecurringTransactions } from '../services/recurringTransactionService';
+import { findDuplicateGroups } from '../services/duplicateDetectionService';
 
 const router = Router();
 
@@ -63,12 +65,18 @@ router.get('/weekly', async (req: Request, res: Response) => {
       topTransactions: normalizedTopTransactions,
     };
 
-    // Generate insights from the summary
+    // Generate insights from the summary (now AI-powered)
     const insights = await generateInsights(normalizedSummary);
 
     // Calculate weekEnd
     const weekEnd = new Date(parsedDate);
     weekEnd.setDate(weekEnd.getDate() + 7);
+
+    // Get user ID for recurring transaction detection
+    const userId = (req.query.userId as string) || process.env.USER_ID_FOR_SMS || 'demo-user';
+
+    // Detect recurring transactions (for context in insights)
+    const recurringTransactions = await detectRecurringTransactions(userId, 90);
 
     // Return the result
     res.json({
@@ -76,12 +84,67 @@ router.get('/weekly', async (req: Request, res: Response) => {
       weekEnd: weekEnd.toISOString().split('T')[0],
       summary: normalizedSummary,
       insights,
+      recurringTransactions: recurringTransactions.slice(0, 5), // Top 5 recurring
     });
   } catch (error) {
     console.error('Error generating weekly summary:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to generate weekly summary',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /reports/duplicates?userId=xxx&days=30
+ * Find duplicate transactions
+ */
+router.get('/duplicates', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.query.userId as string) || process.env.USER_ID_FOR_SMS || 'demo-user';
+    const days = parseInt(req.query.days as string) || 30;
+
+    const duplicateGroups = await findDuplicateGroups(userId, days);
+
+    res.json({
+      userId,
+      lookbackDays: days,
+      duplicateGroups,
+      totalGroups: duplicateGroups.length,
+    });
+  } catch (error) {
+    console.error('Error finding duplicates:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to find duplicate transactions',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /reports/recurring?userId=xxx&days=90
+ * Detect recurring transactions
+ */
+router.get('/recurring', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.query.userId as string) || process.env.USER_ID_FOR_SMS || 'demo-user';
+    const days = parseInt(req.query.days as string) || 90;
+
+    const recurringTransactions = await detectRecurringTransactions(userId, days);
+
+    res.json({
+      userId,
+      lookbackDays: days,
+      recurringTransactions,
+      totalPatterns: recurringTransactions.length,
+    });
+  } catch (error) {
+    console.error('Error detecting recurring transactions:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to detect recurring transactions',
       details: error instanceof Error ? error.message : 'Unknown error',
     });
   }

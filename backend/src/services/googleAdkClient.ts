@@ -22,12 +22,28 @@ Transaction: ${input.description}
 
 Respond with ONLY the category name, nothing else.`;
   } else if (agentName === 'insights-agent') {
-    prompt = `Generate 3-4 concise financial insights based on this spending summary:
-    
-Total: ₹${input.total}
-Categories: ${JSON.stringify(input.byCategory)}
+    const topTransactionsText = input.topTransactions
+      ? input.topTransactions
+          .slice(0, 3)
+          .map((tx: any) => `- ₹${tx.amount.toFixed(2)} at ${tx.description} (${tx.category})`)
+          .join('\n')
+      : 'None';
 
-Provide actionable insights as a JSON array of strings. Example: ["insight 1", "insight 2", "insight 3"]`;
+    prompt = `You are a personal finance advisor. Generate 4-5 concise, actionable financial insights based on this spending summary:
+
+Total Spending: ₹${input.total.toFixed(2)}
+Category Breakdown: ${JSON.stringify(input.byCategory, null, 2)}
+Top Transactions:
+${topTransactionsText}
+
+Provide insights that are:
+1. Specific and data-driven
+2. Actionable (suggest what to do)
+3. Contextual (consider Indian spending patterns)
+4. Encouraging but honest
+
+Respond with ONLY a JSON array of strings. Example: ["insight 1", "insight 2", "insight 3", "insight 4"]
+Do not include any other text, just the JSON array.`;
   }
 
   // Try each API version and model combination until one works
