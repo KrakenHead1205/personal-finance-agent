@@ -163,31 +163,66 @@ export function determineTransactionDirection(smsText: string): 'DEBIT' | 'CREDI
 export function isTransactionSMS(smsText: string): boolean {
   const lowerText = smsText.toLowerCase();
 
-  // Filter out non-transaction SMS
+  // Strong OTP indicators - if these are present, it's definitely an OTP message
+  const strongOtpIndicators = [
+    'one-time password',
+    'one time password',
+    'safekey',
+    'valid for',
+    'do not disclose',
+    'do not share',
+    'please do not share',
+    'verification code',
+    'authentication code',
+    'transaction code',
+    'secret otp',
+    'otp valid for',
+    'otp for txn',
+  ];
+
+  for (const indicator of strongOtpIndicators) {
+    if (lowerText.includes(indicator)) {
+      return false; // Definitely an OTP, not a transaction
+    }
+  }
+
+  // Filter out non-transaction SMS (with weaker checks)
   const nonTransactionKeywords = [
     'otp',
-    'one time password',
-    'verification code',
     'balance enquiry',
     'avl bal:',
     'available balance',
     'mini statement',
     'promotional',
     'offer',
+    'alert',
   ];
 
   for (const keyword of nonTransactionKeywords) {
+    // If keyword is present and no transaction happened (no debited/credited), it's not a transaction
     if (lowerText.includes(keyword) && !lowerText.includes('debited') && !lowerText.includes('credited')) {
       return false;
     }
   }
 
+  // Check for OTP pattern: "is 010908", "is 123456", or "574652 is" (4-8 digit code)
+  const otpCodePattern = /\b\d{4,8}\s+(?:is\s+)?(?:secret\s+)?otp\b|\b(?:is|for)\s+\d{4,8}\b/i;
+  if (otpCodePattern.test(smsText) && (lowerText.includes('otp') || lowerText.includes('password') || lowerText.includes('code') || lowerText.includes('secret'))) {
+    return false; // Has OTP code pattern, likely an OTP message
+  }
+  
+  // Check for "SECRET OTP for txn" pattern (Axis Bank format)
+  if (lowerText.includes('secret otp') && lowerText.includes('for txn')) {
+    return false; // Axis Bank OTP format
+  }
+
   // Must have amount indicator
   const hasAmount = /(?:rs\.?|inr)\s*[0-9,]+/i.test(smsText);
   
-  // Must have transaction indicator
-  const hasTransactionKeyword = /(debited|credited|spent|paid|received|withdrawn|purchase)/i.test(smsText);
+  // Must have transaction indicator (actual transaction keywords)
+  const hasTransactionKeyword = /(debited|credited|spent|paid|received|withdrawn|purchase|trf\s+to)/i.test(smsText);
 
+  // Both amount and transaction keyword must be present
   return hasAmount && hasTransactionKeyword;
 }
 
