@@ -13,7 +13,7 @@ export function detectTransactionType(
 ): 'UPI' | 'CARD' | 'ATM' | 'NETBANKING' | 'OTHER' {
   const lowerText = smsText.toLowerCase();
 
-  if (lowerText.includes('upi') || lowerText.includes('paytm') || lowerText.includes('gpay')) {
+  if (lowerText.includes('upi') || lowerText.includes('paytm') || lowerText.includes('gpay') || lowerText.includes('cred') || lowerText.includes('phonepe')) {
     return 'UPI';
   }
   if (lowerText.includes('card') || lowerText.includes('pos')) {
@@ -120,7 +120,7 @@ export function extractDate(smsText: string): Date {
 export function detectBank(smsText: string, sender?: string): string | undefined {
   const lowerText = (smsText + ' ' + (sender || '')).toLowerCase();
 
-  const banks = ['hdfc', 'icici', 'sbi', 'axis', 'kotak', 'idfc', 'paytm', 'phonepe'];
+  const banks = ['hdfc', 'icici', 'sbi', 'axis', 'kotak', 'idfc', 'paytm', 'phonepe', 'cred'];
   
   for (const bank of banks) {
     if (lowerText.includes(bank)) {
