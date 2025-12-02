@@ -1,16 +1,20 @@
+/**
+ * Transaction type definitions
+ */
+
 export interface Transaction {
   id: string;
-  userId: string;
+  user_id: string;
   amount: number;
   description: string;
   category: string;
   source: string;
   date: Date;
-  createdAt: Date;
+  created_at: Date;
 }
 
 export interface CreateTransactionInput {
-  userId: string;
+  user_id: string;
   amount: number;
   description: string;
   category?: string;
@@ -21,7 +25,7 @@ export interface CreateTransactionInput {
 export interface TransactionQuery {
   from?: string;
   to?: string;
-  userId?: string;
+  user_id?: string;
 }
 
 export interface WeeklySummary {
@@ -29,4 +33,3 @@ export interface WeeklySummary {
   byCategory: Record<string, number>;
   topTransactions: Transaction[];
 }
-

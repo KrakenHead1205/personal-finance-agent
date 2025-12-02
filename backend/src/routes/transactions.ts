@@ -1,5 +1,10 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../db/prisma';
+import {
+  createTransaction,
+  getTransactionsByDateRange,
+  getTransactionById,
+  deleteTransaction,
+} from '../services/transactionService';
 import { categorizeTransaction } from '../services/categorizationService';
 import { CreateTransactionInput } from '../types/transaction';
 
@@ -11,13 +16,14 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, amount, description, category, source, date }: CreateTransactionInput = req.body;
+    const { user_id, amount, description, category, source, date }: CreateTransactionInput =
+      req.body;
 
     // Validate required fields
-    if (!userId || !amount || !description || !source || !date) {
+    if (!user_id || !amount || !description || !source || !date) {
       return res.status(400).json({
         error: 'Missing required fields',
-        required: ['userId', 'amount', 'description', 'source', 'date'],
+        required: ['user_id', 'amount', 'description', 'source', 'date'],
       });
     }
 
@@ -28,19 +34,17 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Auto-categorize if category is not provided (now async with ADK integration)
-    const finalCategory = category || await categorizeTransaction(description);
+    // Auto-categorize if category is not provided
+    const finalCategory = category || (await categorizeTransaction(description));
 
     // Create transaction
-    const transaction = await prisma.transaction.create({
-      data: {
-        userId,
-        amount,
-        description,
-        category: finalCategory,
-        source,
-        date: new Date(date),
-      },
+    const transaction = await createTransaction({
+      user_id,
+      amount,
+      description,
+      category: finalCategory,
+      source,
+      date,
     });
 
     res.status(201).json({
@@ -59,35 +63,26 @@ router.post('/', async (req: Request, res: Response) => {
 /**
  * GET /transactions
  * Get transactions with optional date range filtering
- * Query params: from (YYYY-MM-DD), to (YYYY-MM-DD), userId
+ * Query params: from (YYYY-MM-DD), to (YYYY-MM-DD), user_id
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { from, to, userId } = req.query;
+    const { from, to, user_id } = req.query;
 
-    // Build where clause
-    const where: any = {};
-
-    if (userId) {
-      where.userId = userId as string;
+    // Validate date range if provided
+    if (!from || !to) {
+      return res.status(400).json({
+        error: 'Missing required query parameters',
+        required: ['from', 'to'],
+        format: 'YYYY-MM-DD',
+      });
     }
 
-    if (from || to) {
-      where.date = {};
-      if (from) {
-        where.date.gte = new Date(from as string);
-      }
-      if (to) {
-        where.date.lte = new Date(to as string);
-      }
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where,
-      orderBy: {
-        date: 'desc',
-      },
-    });
+    const transactions = await getTransactionsByDateRange(
+      from as string,
+      to as string,
+      user_id as string | undefined
+    );
 
     res.json({
       count: transactions.length,
@@ -110,9 +105,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
-    });
+    const transaction = await getTransactionById(id);
 
     if (!transaction) {
       return res.status(404).json({
@@ -138,9 +131,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const transaction = await prisma.transaction.delete({
-      where: { id },
-    });
+    const transaction = await deleteTransaction(id);
+
+    if (!transaction) {
+      return res.status(404).json({
+        error: 'Transaction not found',
+      });
+    }
 
     res.json({
       message: 'Transaction deleted successfully',
@@ -156,4 +153,3 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 export default router;
-

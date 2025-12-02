@@ -50,13 +50,17 @@ router.get('/weekly', async (req: Request, res: Response) => {
     // Call the summary service
     const summary = await generateWeeklySummary(weekStart);
 
-    // Generate insights from the summary (now async with ADK integration)
+    // Generate insights from the summary
     const insights = await generateInsights(summary);
+
+    // Calculate weekEnd
+    const weekEnd = new Date(parsedDate);
+    weekEnd.setDate(weekEnd.getDate() + 7);
 
     // Return the result
     res.json({
       weekStart,
-      weekEnd: new Date(new Date(weekStart).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      weekEnd: weekEnd.toISOString().split('T')[0],
       summary,
       insights,
     });
@@ -71,4 +75,3 @@ router.get('/weekly', async (req: Request, res: Response) => {
 });
 
 export default router;
-
