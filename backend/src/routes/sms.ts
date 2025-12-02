@@ -1,20 +1,64 @@
 import { Router, Request, Response } from 'express';
 import { parseSMSTransaction } from '../services/smsParserService';
 import { createTransactionFromSMS } from '../services/transactionService';
-import { SMSWebhookRequest } from '../types/transaction';
+import { SMSWebhookRequest, ParsedTransaction } from '../types/transaction';
 
 const router = Router();
 
 /**
- * Middleware to validate API key for SMS webhook
+ * Rate limiting storage (in-memory)
+ * Maps API key to { count, windowStart }
+ */
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+/**
+ * Rate limiting: 100 requests per hour per API key
+ */
+function checkRateLimit(apiKey: string): boolean {
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+  const maxRequests = 100;
+
+  const entry = rateLimitMap.get(apiKey);
+
+  if (!entry) {
+    // First request for this API key
+    rateLimitMap.set(apiKey, { count: 1, windowStart: now });
+    return true;
+  }
+
+  // Check if window has expired (more than 1 hour passed)
+  if (now - entry.windowStart >= oneHour) {
+    // Reset window
+    rateLimitMap.set(apiKey, { count: 1, windowStart: now });
+    return true;
+  }
+
+  // Check if limit exceeded
+  if (entry.count >= maxRequests) {
+    return false;
+  }
+
+  // Increment count
+  entry.count++;
+  return true;
+}
+
+/**
+ * Middleware to validate API key and check rate limit for SMS webhook
  */
 function validateWebhookKey(req: Request, res: Response, next: Function) {
-  const apiKey = req.headers['x-api-key'];
+  const apiKey = req.headers['x-api-key'] as string;
   const expectedKey = process.env.SMS_WEBHOOK_KEY;
 
-  // Check if webhook is enabled
+  // Check feature flag
   if (process.env.SMS_WEBHOOK_ENABLED !== 'true') {
-    return res.status(503).json({
+    return res.status(403).json({
       error: 'SMS webhook is disabled',
       message: 'Set SMS_WEBHOOK_ENABLED=true in .env to enable',
     });
@@ -34,6 +78,14 @@ function validateWebhookKey(req: Request, res: Response, next: Function) {
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Invalid or missing X-API-Key header',
+    });
+  }
+
+  // Check rate limit
+  if (!checkRateLimit(apiKey)) {
+    return res.status(429).json({
+      error: 'Rate limit exceeded',
+      message: 'Maximum 100 requests per hour allowed',
     });
   }
 
@@ -57,39 +109,30 @@ router.post('/webhook', validateWebhookKey, async (req: Request, res: Response) 
     }
 
     // Parse SMS
-    const parsed = parseSMSTransaction(text, sender);
+    const parsed: ParsedTransaction | null = parseSMSTransaction(text, sender);
 
     if (!parsed) {
       return res.status(200).json({
         success: false,
-        message: 'SMS does not contain valid transaction information',
-        reason: 'Not a transaction SMS or unable to parse',
+        reason: 'Not a transaction SMS',
       });
     }
 
+    // Get user ID from environment or use default
+    const userId = process.env.USER_ID_FOR_SMS || 'demo-user';
+
     // Create transaction in database
-    // Use a default user_id for now (can be configured or extracted from sender)
-    const userId = process.env.DEFAULT_USER_ID || 'sms-user';
-    
     const transaction = await createTransactionFromSMS(parsed, userId);
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: 'Transaction created from SMS',
       transaction,
-      parsed: {
-        amount: parsed.amount,
-        merchant: parsed.merchant,
-        type: parsed.type,
-        channel: parsed.channel,
-        bank: parsed.bank,
-      },
     });
   } catch (error) {
     console.error('Error processing SMS webhook:', error);
     res.status(500).json({
       error: 'Failed to process SMS',
-      details: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Internal server error',
     });
   }
 });

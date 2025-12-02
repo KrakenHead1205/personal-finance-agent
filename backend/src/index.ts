@@ -40,7 +40,11 @@ app.get('/', (req: Request, res: Response) => {
       health: '/health',
       transactions: '/transactions',
       reports: '/reports',
-      sms: '/sms',
+      sms: {
+        webhook: 'POST /sms/webhook',
+        parse: 'POST /sms/parse',
+        test: 'GET /sms/test',
+      },
     },
   });
 });

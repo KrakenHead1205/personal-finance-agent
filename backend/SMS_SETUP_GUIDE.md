@@ -1,383 +1,292 @@
-# SMS Integration Setup Guide
+# SMS Transaction Webhook - iOS Shortcuts Setup
 
-## Automatically Import UPI & Credit Card Transactions from SMS
+## Overview
 
-This guide will help you set up iOS Shortcuts to automatically forward bank transaction SMS to your Personal Finance Agent.
-
----
-
-## 📱 **Prerequisites**
-
-- iPhone with iOS 13 or later
-- Bank transaction SMS notifications enabled
-- Your backend server accessible (deployed or using ngrok for local testing)
+This guide explains how to set up iOS Shortcuts automation to automatically forward bank transaction SMS messages to your backend webhook. When you receive a transaction SMS (UPI, credit card, etc.), it will be automatically parsed and added to your finance tracking system via HTTP POST.
 
 ---
 
-## 🔧 **Part 1: Backend Setup**
+## Prerequisites
 
-### **Step 1: Update Environment Variables**
-
-Edit `backend/.env`:
-
-```env
-# Enable SMS webhook
-SMS_WEBHOOK_ENABLED=true
-
-# Set a secure API key (use a random string)
-SMS_WEBHOOK_KEY=your_secret_key_here_use_random_string
-
-# Default user ID for SMS transactions
-DEFAULT_USER_ID=your-user-id
-```
-
-**Generate a secure webhook key:**
-
-```bash
-# Generate a random key
-openssl rand -base64 32
-# Example output: K8JDh3k9PmQ2xR5tY7uN0vL4wZ1bA6cE...
-```
-
-Copy this key to both `.env` and your iOS Shortcut (see below).
-
-### **Step 2: Restart Backend**
-
-```bash
-cd backend
-npm run dev
-```
-
-Verify the SMS endpoint is available:
-
-```bash
-curl http://localhost:4000/sms/test \
-  -H "X-API-Key: your_secret_key_here"
-
-# Should return: {"status":"ok","message":"SMS webhook is configured correctly"}
-```
+- **Running backend** with a publicly accessible URL:
+  - Local development: Use [ngrok](https://ngrok.com/) to expose `http://localhost:4000`
+  - Production: Deploy to Heroku, Railway, Render, or similar service
+- **SMS_WEBHOOK_KEY** configured in `backend/.env`
+- **iPhone** with iOS 13+ and the **Shortcuts** app installed
+- **Bank SMS notifications** enabled on your phone
 
 ---
 
-## 🌐 **Part 2: Make Backend Accessible**
+## Webhook Details
 
-### **Option A: Deploy to Production (Recommended)**
+### Endpoint
 
-Deploy your backend to a cloud service:
-- **Heroku**: Free tier available
-- **Railway**: Easy PostgreSQL + Node.js hosting
-- **Render**: Free tier with PostgreSQL
-- **DigitalOcean**: App Platform
-- **AWS/GCP**: More complex but scalable
-
-Once deployed, use your production URL (e.g., `https://your-app.herokuapp.com`)
-
-### **Option B: Use ngrok for Testing**
-
-For local testing, expose your local server:
-
-```bash
-# Install ngrok
-brew install ngrok
-
-# Authenticate (sign up at ngrok.com for free)
-ngrok authtoken YOUR_AUTH_TOKEN
-
-# Expose local server
-ngrok http 4000
+```
+POST https://<your-domain>/sms/webhook
 ```
 
-You'll get a public URL like: `https://abc123.ngrok.io`
+### Headers
 
-**Important:** This URL changes each time you restart ngrok. For permanent use, deploy to production.
-
----
-
-## 📲 **Part 3: iOS Shortcuts Setup**
-
-### **Step 1: Create Personal Automation**
-
-1. Open **Shortcuts** app on iPhone
-2. Tap **Automation** tab (bottom)
-3. Tap **+** (top right) → **Create Personal Automation**
-4. Select **Message** → **Contains** → Type: `debited` (or `credited`)
-5. Choose **Run Immediately** (disable "Ask Before Running")
-6. Tap **Next**
-
-### **Step 2: Add Shortcut Actions**
-
-1. **Search and add: "Get Contents of URL"**
-   - URL: `https://your-backend.com/sms/webhook` (replace with your URL)
-   - Method: **POST**
-   - Headers:
-     - Add Header
-     - Key: `X-API-Key`
-     - Value: `your_secret_key_here` (same as SMS_WEBHOOK_KEY from .env)
-     - Add Header
-     - Key: `Content-Type`
-     - Value: `application/json`
-   - Request Body: **JSON**
-   - Click **Add new field**
-   - Key: `text`
-   - Value: **Shortcut Input** (the SMS text)
-   - Click **Add new field**
-   - Key: `sender`
-   - Value: **Sender** (tap "Shortcut Input" → "Sender")
-
-2. **Optional: Add notification for success/failure**
-   - Search and add: "Show Notification"
-   - Title: "Transaction Synced"
-   - Body: **Contents of URL** (the API response)
-
-### **Step 3: Test the Automation**
-
-1. Tap **Done** to save
-2. Send yourself a test SMS with transaction format:
-   ```
-   Rs.500.00 debited from A/c XX1234 for UPI/PAY123/SWIGGY on 02-Dec-24
-   ```
-3. Check your backend logs or dashboard - transaction should appear!
-
----
-
-## 📝 **SMS Format Examples**
-
-The parser supports common Indian bank formats:
-
-### **UPI Transactions:**
 ```
-Rs.500.00 debited from A/c XX1234 for UPI/123456789012/PAYTM on 02-Dec-24
-Rs.1,500.00 paid via UPI to AMAZON on 02-Dec-24
+Content-Type: application/json
+X-API-Key: <SMS_WEBHOOK_KEY>
 ```
 
-### **Credit Card:**
-```
-Rs.2,500.00 spent on Card XX1234 at FLIPKART on 02-Dec-24
-INR 1,299.00 debited from Card ending 1234 at NETFLIX
-```
+### Request Body (JSON)
 
-### **Debit Card:**
-```
-Rs.3,000.00 debited from A/c XX1234 at ATM on 02-Dec-24
-Rs.450.00 spent at POS STARBUCKS on 02/12/2024
-```
-
----
-
-## 🧪 **Testing Your Integration**
-
-### **Test 1: Parse SMS (Without Creating Transaction)**
-
-```bash
-curl -X POST http://localhost:4000/sms/parse \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your_secret_key_here" \
-  -d '{
-    "text": "Rs.500.00 debited from A/c XX1234 for UPI/PAY123/SWIGGY on 02-Dec-24",
-    "sender": "HDFC"
-  }'
-```
-
-**Expected response:**
 ```json
 {
-  "parsed": {
-    "rawText": "Rs.500.00...",
-    "amount": 500,
-    "merchant": "SWIGGY",
-    "date": "2024-12-02T00:00:00.000Z",
-    "type": "DEBIT",
-    "channel": "UPI",
-    "bank": "HDFC"
-  },
-  "isValid": true
+  "text": "<full SMS body>",
+  "receivedAt": "<ISO timestamp>",
+  "sender": "<optional sender>"
 }
 ```
 
-### **Test 2: Create Transaction from SMS**
+### Response
 
-```bash
-curl -X POST http://localhost:4000/sms/webhook \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your_secret_key_here" \
-  -d '{
-    "text": "Rs.1,500.00 spent on Card XX1234 at AMAZON on 02-Dec-24",
-    "sender": "ICICI"
-  }'
-```
-
-**Expected response:**
+**Success (200):**
 ```json
 {
   "success": true,
-  "message": "Transaction created from SMS",
   "transaction": {
-    "id": "uuid-here",
-    "user_id": "sms-user",
-    "amount": 1500,
-    "description": "AMAZON",
-    "category": "Shopping",
-    "source": "ICICI CARD",
+    "id": "uuid",
+    "user_id": "demo-user",
+    "amount": 500,
+    "description": "SWIGGY",
+    "category": "Food",
+    "source": "UPI",
     "date": "2024-12-02T00:00:00.000Z"
   }
 }
 ```
 
----
-
-## 🔒 **Security Best Practices**
-
-### **1. Strong Webhook Key**
-
-Generate a secure random key:
-
-```bash
-# Generate 32-byte random key
-openssl rand -base64 32
+**Not a transaction (200):**
+```json
+{
+  "success": false,
+  "reason": "Not a transaction SMS"
+}
 ```
 
-### **2. HTTPS Only (Production)**
-
-Never use HTTP in production - always HTTPS:
-- Protects your API key in transit
-- Prevents SMS content interception
-
-### **3. Rate Limiting**
-
-The webhook has built-in basic security:
-- API key validation
-- Input validation
-- Error handling
-
-For production, consider adding:
-- Rate limiting (express-rate-limit)
-- IP whitelisting
-- Request logging
-
-### **4. Keep Keys Secret**
-
-- Never commit `.env` to git
-- Never share your webhook key
-- Rotate keys periodically
+**Error (401/403/429/500):**
+```json
+{
+  "error": "Error message",
+  "message": "Details"
+}
+```
 
 ---
 
-## 🎯 **Supported Banks**
+## Step-by-Step Shortcut Setup
 
-The parser is designed for Indian banks:
+### Step 1: Create Personal Automation
 
-- HDFC Bank
-- ICICI Bank
-- State Bank of India (SBI)
-- Axis Bank
-- Kotak Mahindra Bank
-- IDFC First Bank
-- Paytm Payments Bank
-- PhonePe
+1. Open **Shortcuts** app on iPhone
+2. Tap **Automation** tab (bottom)
+3. Tap **+** (top right) → **Create Personal Automation**
+4. Select **Message** → **Any Message**
+5. Optionally filter by **Sender** (add your bank's SMS sender IDs)
+6. Tap **Next**
 
-**Note:** SMS formats vary by bank. The parser uses flexible regex patterns to handle variations.
+### Step 2: Configure Trigger
+
+1. Enable **Run Immediately** (disable "Ask Before Running" for automatic processing)
+2. Tap **Next**
+
+### Step 3: Add Actions
+
+Add the following actions in order:
+
+#### Action 1: Get Message Text
+- Search: **"Get Text from Input"**
+- Input: **Shortcut Input** (the received message)
+
+#### Action 2: Get Current Date
+- Search: **"Get Current Date"**
+- Format: **ISO 8601**
+
+#### Action 3: Get Sender (Optional)
+- Search: **"Get Details of Messages"**
+- Get: **Sender**
+
+#### Action 4: Make HTTP Request
+- Search: **"Get Contents of URL"**
+- Configure:
+  - **URL**: `https://your-backend-url.com/sms/webhook`
+  - **Method**: **POST**
+  - **Headers**:
+    - Add Header
+    - Key: `Content-Type`
+    - Value: `application/json`
+    - Add Header
+    - Key: `X-API-Key`
+    - Value: `<paste your SMS_WEBHOOK_KEY here>`
+  - **Request Body**: **JSON**
+    - Add Field:
+      - Key: `text`
+      - Value: **Text** (from Action 1)
+    - Add Field:
+      - Key: `receivedAt`
+      - Value: **Current Date** (from Action 2)
+    - Add Field:
+      - Key: `sender`
+      - Value: **Sender** (from Action 3, or leave empty)
+
+### Step 4: Save Automation
+
+1. Tap **Done**
+2. Automation is now active and will trigger on incoming SMS
 
 ---
 
-## 🐛 **Troubleshooting**
+## Testing
 
-### **Issue 1: SMS Not Parsed**
+### Test 1: Send Test SMS
 
-Check the `/sms/parse` endpoint to see if parsing works:
+1. Send yourself a test SMS with transaction format:
+   ```
+   Rs.500.00 debited from A/c XX1234 for UPI/123456789012/PAYTM on 02-Dec-24
+   ```
+
+2. Check backend logs:
+   ```bash
+   # In your backend terminal, you should see:
+   # Request received at /sms/webhook
+   # Transaction created: { id: "...", amount: 500, ... }
+   ```
+
+3. Verify in database or dashboard:
+   - Check `http://localhost:3000/dashboard`
+   - Transaction should appear automatically
+
+### Test 2: Check Backend Logs
+
+If the request fails, check your backend terminal for error messages:
 
 ```bash
-curl -X POST http://localhost:4000/sms/parse \
+# Common log messages:
+✅ "Transaction created from SMS"
+❌ "Error processing SMS webhook: ..."
+❌ "Rate limit exceeded"
+❌ "Invalid or missing X-API-Key header"
+```
+
+### Test 3: Manual Webhook Test
+
+Test the webhook directly with curl:
+
+```bash
+curl -X POST https://your-backend-url.com/sms/webhook \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your_key" \
-  -d '{"text": "paste your actual SMS text here"}'
+  -H "X-API-Key: your-webhook-key" \
+  -d '{
+    "text": "Rs.500.00 debited from A/c XX1234 for UPI/123456789012/PAYTM on 02-Dec-24",
+    "sender": "HDFC"
+  }'
 ```
 
-If `isValid: false`, the SMS format may not be recognized.
+---
 
-### **Issue 2: Unauthorized Error**
+## Troubleshooting
 
-Check that:
-- `X-API-Key` header matches `SMS_WEBHOOK_KEY` in `.env`
-- No extra spaces in the key
-- Backend server was restarted after updating `.env`
+### 401 Unauthorized
 
-### **Issue 3: iOS Shortcut Not Triggering**
+**Problem:** Invalid or missing API key
 
-- Verify automation trigger matches your SMS keywords
-- Check if "Run Immediately" is enabled
-- Test with a manual SMS first
-- Check iPhone Settings → Shortcuts → Advanced → Allow Running Scripts
+**Solutions:**
+- Verify `X-API-Key` header in Shortcut matches `SMS_WEBHOOK_KEY` in `.env`
+- Check for extra spaces or quotes in the key
+- Restart backend after updating `.env`
 
-### **Issue 4: Wrong Category**
+### 403 Forbidden
 
-The merchant name extraction might not be perfect. You can:
-- Manually edit transaction categories in the dashboard
-- Update parsing regex in `smsParserService.ts`
-- Add bank-specific patterns
+**Problem:** SMS webhook is disabled
+
+**Solutions:**
+- Set `SMS_WEBHOOK_ENABLED=true` in `backend/.env`
+- Restart backend server
+- Verify with: `curl https://your-backend-url.com/sms/test -H "X-API-Key: your-key"`
+
+### 429 Too Many Requests
+
+**Problem:** Rate limit exceeded (100 requests/hour)
+
+**Solutions:**
+- Wait for the rate limit window to reset (1 hour)
+- Reduce automation triggers (filter by specific senders)
+- For production, consider increasing the limit in `backend/src/routes/sms.ts`
+
+### 200 OK but `success: false`
+
+**Problem:** SMS was not recognized as a transaction
+
+**Possible reasons:**
+- SMS format not supported by parser
+- Contains OTP or balance check (filtered out)
+- Missing amount or transaction keywords
+
+**Solutions:**
+- Check SMS format matches supported patterns (see parser documentation)
+- Test with `/sms/parse` endpoint to see parsing details
+- Manually add transaction if needed
+
+### No Response / Timeout
+
+**Problem:** Backend not reachable
+
+**Solutions:**
+- Verify backend is running: `curl https://your-backend-url.com/health`
+- Check ngrok is running (if using): `ngrok http 4000`
+- Verify URL in Shortcut matches your backend URL
+- Check network connectivity on iPhone
+
+### Transaction Not Appearing in Dashboard
+
+**Problem:** Transaction created but not visible
+
+**Solutions:**
+- Check `user_id` matches your dashboard user
+- Verify date range in dashboard includes transaction date
+- Check database directly: `psql finance_agent -c "SELECT * FROM transactions ORDER BY created_at DESC LIMIT 5;"`
 
 ---
 
-## 📊 **What Gets Auto-Imported**
+## Example SMS Formats Supported
 
-Once set up, these will sync automatically:
+The parser recognizes these formats:
 
-✅ **UPI payments** (Google Pay, PhonePe, Paytm, etc.)
-✅ **Credit card transactions**
-✅ **Debit card purchases**
-✅ **ATM withdrawals**
-✅ **Net banking transfers**
-
-❌ **Won't sync:**
-- Balance check SMS
-- OTP messages
-- Promotional offers
-- Non-transaction notifications
+- **UPI**: `Rs.500.00 debited from A/c XX1234 for UPI/123456789012/PAYTM on 02-Dec-24`
+- **Credit Card**: `Rs.1,500.00 spent on Card XX1234 at AMAZON on 02-Dec-24`
+- **Debit Card**: `Rs.2,000.00 debited from A/c XX1234 at ATM on 02-Dec-24`
 
 ---
 
-## 🚀 **Advanced: Multiple Triggers**
+## Security Notes
 
-Create multiple automations for better coverage:
-
-1. **Automation 1:** Contains "debited"
-2. **Automation 2:** Contains "credited"
-3. **Automation 3:** Contains "spent"
-4. **Automation 4:** Contains "paid"
-
-All using the same webhook URL and actions.
+- **Never commit** `.env` file to git
+- **Use HTTPS** in production (never HTTP)
+- **Rotate API keys** periodically
+- **Monitor logs** for suspicious activity
+- **Rate limiting** prevents abuse (100 req/hour)
 
 ---
 
-## 📈 **Benefits**
+## Next Steps
 
-Once configured:
+Once set up:
 
-✅ **Automatic tracking** - No manual entry needed
-✅ **Real-time sync** - Transactions appear instantly
-✅ **AI categorization** - Smart category detection
-✅ **Complete history** - All transactions captured
-✅ **No missed expenses** - Every SMS = automatic entry
-
----
-
-## 🎯 **Next Steps**
-
-1. Deploy your backend or set up ngrok
-2. Generate a secure webhook key
-3. Update `.env` with SMS configuration
-4. Create iOS Shortcut automation
-5. Test with a sample SMS
-6. Enable for all transaction SMS
-
-Your finance tracking becomes completely automatic! 🎉
+1. ✅ Transactions sync automatically from SMS
+2. ✅ AI categorizes transactions intelligently
+3. ✅ View in dashboard at `/dashboard`
+4. ✅ Weekly summaries include SMS transactions
+5. ✅ No manual entry needed!
 
 ---
 
-## 📞 **Support**
+## Support
 
-If SMS parsing doesn't work for your bank's format:
-1. Copy the actual SMS text
-2. Test with `/sms/parse` endpoint
-3. Share the format (with sensitive data removed)
-4. Custom parser can be added to `smsParserService.ts`
-
+For issues or questions:
+- Check backend logs for detailed error messages
+- Test with `/sms/parse` endpoint to debug parsing
+- Verify webhook configuration with `/sms/test` endpoint
