@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import transactionsRouter from './routes/transactions';
 import reportsRouter from './routes/reports';
+import smsRouter from './routes/sms';
 
 // Load environment variables
 dotenv.config();
@@ -27,6 +28,7 @@ app.get('/health', (req: Request, res: Response) => {
 // API Routes
 app.use('/transactions', transactionsRouter);
 app.use('/reports', reportsRouter);
+app.use('/sms', smsRouter);
 
 // Root route
 app.get('/', (req: Request, res: Response) => {
@@ -38,6 +40,7 @@ app.get('/', (req: Request, res: Response) => {
       health: '/health',
       transactions: '/transactions',
       reports: '/reports',
+      sms: '/sms',
     },
   });
 });
@@ -56,6 +59,7 @@ app.listen(PORT, () => {
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`💰 Transactions API: http://localhost:${PORT}/transactions`);
   console.log(`📈 Reports API: http://localhost:${PORT}/reports`);
+  console.log(`📱 SMS Webhook: http://localhost:${PORT}/sms/webhook`);
   console.log(`🗄️  Database: PostgreSQL`);
 });
 

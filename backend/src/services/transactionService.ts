@@ -1,5 +1,6 @@
 import pool from '../db/pool';
-import { Transaction, CreateTransactionInput } from '../types/transaction';
+import { Transaction, CreateTransactionInput, ParsedTransaction } from '../types/transaction';
+import { categorizeTransaction } from './categorizationService';
 
 /**
  * Transaction service
@@ -88,5 +89,41 @@ export async function getAllTransactions(): Promise<Transaction[]> {
   const query = `SELECT * FROM transactions ORDER BY date DESC`;
   const result = await pool.query(query);
   return result.rows;
+}
+
+/**
+ * Create transaction from parsed SMS data
+ * @param parsedData - Parsed SMS transaction
+ * @param userId - User ID to associate with transaction
+ * @returns Created transaction
+ */
+export async function createTransactionFromSMS(
+  parsedData: ParsedTransaction,
+  userId: string
+): Promise<Transaction> {
+  // Determine source based on channel
+  let source = parsedData.channel;
+  if (parsedData.bank) {
+    source = `${parsedData.bank} ${parsedData.channel}`;
+  }
+
+  // Auto-categorize based on merchant description
+  const category = await categorizeTransaction(parsedData.merchant);
+
+  // For credit transactions (money received), we might want to handle differently
+  // For now, we'll store all transactions as positive amounts
+  const amount = parsedData.type === 'CREDIT' ? parsedData.amount : parsedData.amount;
+
+  // Create transaction
+  const transaction = await createTransaction({
+    user_id: userId,
+    amount,
+    description: parsedData.merchant,
+    category,
+    source,
+    date: parsedData.date,
+  });
+
+  return transaction;
 }
 
