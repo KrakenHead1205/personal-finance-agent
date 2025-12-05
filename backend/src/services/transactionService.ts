@@ -148,7 +148,13 @@ export async function createTransactionFromSMS(
   }
 
   // Use merchant name if available, otherwise fall back to raw text
-  const description = parsed.merchant || parsed.rawText;
+  // For ATM withdrawals, format description more clearly
+  let description: string;
+  if (parsed.channel === 'ATM' && parsed.merchant) {
+    description = `Cash Withdrawal at ${parsed.merchant}`;
+  } else {
+    description = parsed.merchant || parsed.rawText;
+  }
 
   // Auto-categorize using improved pipeline with full context
   const category = await categorizeTransaction(description, {

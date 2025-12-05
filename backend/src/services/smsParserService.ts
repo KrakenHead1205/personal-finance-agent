@@ -37,7 +37,7 @@ export function extractAmount(smsText: string): number | null {
   // Try multiple patterns for Indian currency formats
   const patterns = [
     /(?:rs\.?|inr)\s*([0-9,]+\.?\d*)/i,
-    /(?:debited|credited|spent|paid|received)\s+(?:rs\.?|inr)?\s*([0-9,]+\.?\d*)/i,
+    /(?:debited|credited|spent|paid|received|withdrawn)\s+(?:rs\.?|inr)?\s*([0-9,]+\.?\d*)/i,  // Added "withdrawn" for ATM
     /(?:amount|amt)[:.\s]+(?:rs\.?|inr)?\s*([0-9,]+\.?\d*)/i,
   ];
 
@@ -97,6 +97,18 @@ export function extractDate(smsText: string): Date {
   const ddMmmYyMatch = smsText.match(/(\d{1,2})-([A-Za-z]{3})-(\d{2})/);
   if (ddMmmYyMatch) {
     const [, day, month, year] = ddMmmYyMatch;
+    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const monthIndex = monthNames.indexOf(month.toLowerCase());
+    if (monthIndex !== -1) {
+      const fullYear = 2000 + parseInt(year);
+      return new Date(fullYear, monthIndex, parseInt(day));
+    }
+  }
+
+  // Try DDMMMYY format without hyphens (e.g., 02Dec25)
+  const ddMmmYyNoHyphenMatch = smsText.match(/(\d{1,2})([A-Za-z]{3})(\d{2})/);
+  if (ddMmmYyNoHyphenMatch) {
+    const [, day, month, year] = ddMmmYyNoHyphenMatch;
     const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
     const monthIndex = monthNames.indexOf(month.toLowerCase());
     if (monthIndex !== -1) {
