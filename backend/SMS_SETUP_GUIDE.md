@@ -113,7 +113,7 @@ Add the following actions in order:
 #### Action 4: Make HTTP Request
 - Search: **"Get Contents of URL"**
 - Configure:
-  - **URL**: `https://your-backend-url.com/sms/webhook`
+  - **URL**: `http://localhost:4000/sms/webhook`
   - **Method**: **POST**
   - **Headers**:
     - Add Header
@@ -121,7 +121,7 @@ Add the following actions in order:
     - Value: `application/json`
     - Add Header
     - Key: `X-API-Key`
-    - Value: `<paste your SMS_WEBHOOK_KEY here>`
+    - Value: `6qV0R4VdmFYqHWftVXaqMZHOf3+tF6zXlTxyybkbz4U=`
   - **Request Body**: **JSON**
     - Add Field:
       - Key: `text`

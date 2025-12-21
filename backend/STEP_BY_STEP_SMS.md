@@ -53,16 +53,11 @@ Connections                   ttl     opn     rt1     rt5     p50     p90
                               0       0       0.00    0.00    0.00    0.00
 ```
 
-**📋 IMPORTANT: Copy the HTTPS URL** 
-- Look for the line that says `Forwarding`
-- Copy the **HTTPS URL** (e.g., `https://abc123xyz.ngrok-free.app`)
-- This is **NOT** your port number - it's a public URL that ngrok creates
-- This URL forwards to your `localhost:4000` backend
-- **Example:** If you see `https://abc123xyz.ngrok-free.app`, that's your URL!
+**📋 Copy the HTTPS URL** (e.g., `https://abc123xyz.ngrok-free.app`)
 
 ✅ **Keep this terminal running too!** The URL will change if you restart ngrok.
 
-**💡 Tip:** You can also open http://127.0.0.1:4040 in your browser to see the ngrok dashboard and copy the URL from there.
+**💡 Tip:** You can also open http://127.0.0.1:4040 in your browser to see the ngrok dashboard.
 
 ---
 
@@ -136,18 +131,11 @@ You'll add 4 actions in order:
 4. Tap on the date format (it might say "Date")
 5. Change format to **ISO 8601**
 
-#### Action 3: Get Sender (OPTIONAL - Skip if not available)
-**Note:** Some iOS versions don't have this action. That's okay - you can skip it!
-
-**If available:**
+#### Action 3: Get Sender (Optional but Recommended)
 1. Tap **+ Add Action**
 2. Search for: **"Get Details of Messages"**
 3. Tap on it to add
 4. Tap on **Details** and select **Sender**
-
-**If NOT available:**
-- Just skip this step - it's optional!
-- In Action 4, you can leave the `sender` field empty or remove it
 
 #### Action 4: Make HTTP Request
 1. Tap **+ Add Action**
@@ -159,10 +147,8 @@ You'll add 4 actions in order:
 **a) Set the URL:**
 - Tap on the URL field
 - Enter: `https://YOUR_NGROK_URL.ngrok-free.app/sms/webhook`
-  - **Replace `YOUR_NGROK_URL`** with the HTTPS URL you copied from Step 2
-  - **This is NOT your port number!** It's the ngrok URL (e.g., `abc123xyz.ngrok-free.app`)
-  - **Full example:** `https://abc123xyz.ngrok-free.app/sms/webhook`
-  - **Where to find it:** Look in Terminal 2 where ngrok is running, find the "Forwarding" line
+  - Replace `YOUR_NGROK_URL` with your actual ngrok URL from Step 2
+  - Example: `https://abc123xyz.ngrok-free.app/sms/webhook`
 
 **b) Change Method to POST:**
 - Tap on **GET** (it might say "Get" or show a dropdown)
@@ -188,10 +174,7 @@ You'll add 4 actions in order:
   - Value: Tap the value field → Select **Current Date** (from Action 2)
 - Tap **Add Field**
   - Key: `sender`
-  - Value: 
-    - **If you added Action 3:** Tap the value field → Select **Sender** (from Action 3)
-    - **If you skipped Action 3:** Just leave it empty or type an empty string `""`
-    - **Note:** This field is optional - the webhook will work without it!
+  - Value: Tap the value field → Select **Sender** (from Action 3, or leave empty)
 
 ### 4.5: Save the Automation
 1. Tap **Done** (top right)
